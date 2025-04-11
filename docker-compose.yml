@@ -5,6 +5,14 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_NAME=fastapi-service
+      - OTEL_TRACES_EXPORTER=otlp
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+    depends_on:
+      - jaeger
+      - db
     restart: unless-stopped
   
   frontend:
@@ -14,3 +22,37 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+
+  db:
+    container_name: dbb
+    image: postgres:12
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+    command: -p 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"    # Jaeger UI
+      - "4317:4317"      # OTLP gRPC
+      - "4318:4318"      # OTLP HTTP
+      - "6831:6831/udp"  # Jaeger agent (optional)
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+
+
+
+
+  volumes:
+    pgdata:
