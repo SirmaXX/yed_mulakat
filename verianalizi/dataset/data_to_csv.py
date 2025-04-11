@@ -52,19 +52,10 @@ def load_data(mat_path, battery, status):
     )
 
 
-def calculate_RUL(df):
-    eol_cycle = df["cycle"].max()
-
-    df["RUL"] = eol_cycle - df["cycle"]
-
-    return df
-
-
 datasets = ["B0005", "B0006", "B0018"]
-status = "charge"
+status = "discharge"
 for name in datasets:
     dataset = load_data(f"{name}.mat", name, status="discharge")
-    dataset_with_rul = calculate_RUL(dataset)
 
     csv_filename = f"{name}_{status}.csv"
-    dataset_with_rul.to_csv(csv_filename, index=False)
+    dataset.to_csv(csv_filename, index=False)
