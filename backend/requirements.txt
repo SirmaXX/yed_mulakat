@@ -8,3 +8,5 @@ opentelemetry-instrumentation-fastapi
 opentelemetry-exporter-otlp
 slowapi
 tensorflow
+prometheus-fastapi-instrumentator
+opentelemetry-exporter-prometheus

@@ -9,17 +9,52 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - OTEL_SERVICE_NAME=fastapi-service
       - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=prometheus
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - PROMETHEUS_MULTIPROC_DIR=/tmp
     depends_on:
       - jaeger
       - db
     restart: unless-stopped
-  
+    volumes:
+      - ./backend:/app
+      - /tmp
+
+  # ... (frontend, db servisleri aynı)
   frontend:
     build: ./frontend
     ports:
-      - "5000:5000"
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://backend:8000
     depends_on:
+      - backend
+    restart: unless-stopped
+    
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"    # Jaeger UI
+      - "4317:4317"      # OTLP gRPC
+      - "4318:4318"      # OTLP HTTP
+      - "6831:6831/udp"  # Jaeger agent
+      - "14269:14269"    # Jaeger metrics endpoint
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - METRICS_STORAGE_TYPE=prometheus
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    depends_on:
+      - jaeger
       - backend
     restart: unless-stopped
 
@@ -29,7 +64,7 @@ services:
     image: postgres:12
     restart: always
     ports:
-      - "5432:5432"
+      - "5433:5433"
     environment:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_USER=postgres
@@ -37,22 +72,5 @@ services:
     command: -p 5432
     volumes:
       - pgdata:/var/lib/postgresql/data
-
-
-
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    ports:
-      - "16686:16686"    # Jaeger UI
-      - "4317:4317"      # OTLP gRPC
-      - "4318:4318"      # OTLP HTTP
-      - "6831:6831/udp"  # Jaeger agent (optional)
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    restart: unless-stopped
-
-
-
-
-  volumes:
-    pgdata:
+volumes:
+  pgdata:

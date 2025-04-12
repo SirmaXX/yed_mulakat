@@ -2,73 +2,78 @@ from fastapi import FastAPI, Request, HTTPException
 import numpy as np
 from pydantic import BaseModel
 from typing import List
-from opentelemetry import trace
+import os
+from tensorflow.keras.models import load_model
+
+# Monitoring ve Observability için importlar
+from opentelemetry import trace, metrics
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from tensorflow.keras.models import load_model
-import os
+from opentelemetry.exporter.prometheus import PrometheusMetricReader
+from opentelemetry.sdk.metrics import MeterProvider
+from prometheus_client import start_http_server
+from prometheus_fastapi_instrumentator import Instrumentator
 
-# Initialize tracing
-resource = Resource.create(
-    {"service.name": os.getenv("OTEL_SERVICE_NAME", "fastapi-service")}
-)
-provider = TracerProvider(resource=resource)
-
-# Use OTLP exporter with environment variables
-otlp_exporter = OTLPSpanExporter(
-    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-    insecure=True,
-)
-
-provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
-trace.set_tracer_provider(provider)
-
-
+# Rate limiting için
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
+import time
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["1/minute"])
+# Modelleri yükle
+SOC_model = load_model("models/SOC_LSTM.h5")
+SOH_model = load_model("models/SOH_LSTM.h5")
 
+
+# OpenTelemetry ve Prometheus başlatma
+def setup_observability():
+    # Tracing konfigürasyonu
+    resource = Resource.create(
+        {"service.name": os.getenv("OTEL_SERVICE_NAME", "fastapi-service")}
+    )
+    trace_provider = TracerProvider(resource=resource)
+    otlp_exporter = OTLPSpanExporter(
+        endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+        insecure=True,
+    )
+    trace_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+    trace.set_tracer_provider(trace_provider)
+
+    # Metrikler konfigürasyonu
+    reader = PrometheusMetricReader()
+    meter_provider = MeterProvider(metric_readers=[reader])
+    metrics.set_meter_provider(meter_provider)
+
+    # Prometheus metrik sunucusu
+    start_http_server(port=8001)
+
+
+# FastAPI uygulamasını başlat
 app = FastAPI()
+setup_observability()
 FastAPIInstrumentor.instrument_app(app)
+
+# Rate limiting konfigürasyonu
+limiter = Limiter(key_func=get_remote_address, default_limits=["1/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
-#  app.add_middleware(TrustedHostMiddleware, allowed_hosts=[""] )
+
+# Prometheus instrumentator
+instrumentator = Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    should_respect_env_var=True,
+    excluded_handlers=[".*admin.*", "/metrics"],
+)
+instrumentator.instrument(app).expose(app)
 
 
-SOC_model = load_model("models/SOC_LSTM.h5")  # soc modeli
-SOH_model = load_model("models/SOH_LSTM.h5")  # soh modeli
-
-
-@app.get("/")
-async def read_root():
-    return {"message": "Hello World"}
-
-
-@app.get("/test-limiter")
-@limiter.limit("5/minute")
-async def test_limiter(request: Request):
-    return {"message": "Hello limiter"}
-
-
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, request: Request):
-    current_span = trace.get_current_span()
-    current_span.set_attribute("item_id", item_id)
-
-    tracer = trace.get_tracer(__name__)
-    with tracer.start_as_current_span("custom_operation"):
-        result = {"item_id": item_id, "q": request.query_params.get("q")}
-
-    return result
-
-
+# Modeller için veri yapıları
 class TimeStepData(BaseModel):
     voltage_measured: float
     current_measured: float
@@ -79,9 +84,28 @@ class TimeStepData(BaseModel):
 
 
 class PredictionRequest(BaseModel):
-    ambient_temperature: float = 24.0  # Varsayılan değer
-    rul: int = 167  # Varsayılan değer
-    time_steps: List[TimeStepData]  # 10 adet zaman adımı
+    ambient_temperature: float = 24.0
+    rul: int = 167
+    time_steps: List[TimeStepData]
+
+
+# Metrikler ve tracing için yardımcı fonksiyonlar
+def record_metrics(endpoint: str, duration: float, status_code: int):
+    meter = metrics.get_meter(__name__)
+    request_counter = meter.create_counter(
+        "http_requests_total", description="Total HTTP requests", unit="1"
+    )
+    request_counter.add(1, {"endpoint": endpoint, "status_code": str(status_code)})
+
+    latency_histogram = meter.create_histogram(
+        "http_request_duration_seconds",
+        description="HTTP request duration in seconds",
+        unit="s",
+    )
+    latency_histogram.record(duration, {"endpoint": endpoint})
+
+
+# API endpoint'leri
 
 
 @app.get(
@@ -152,7 +176,7 @@ async def soh_test_predict():
     manuel_veri = manuel_veri.reshape(1, 10, 8)
 
     # Tahmin yapma
-    tahmin = SOH_model.predict(manuel_veri)
+    tahmin = SOC_model.predict(manuel_veri)
 
     return {"predicted_soc": float(tahmin[0][0])}
 
@@ -223,7 +247,23 @@ async def soc_test_predict(request: Request):
     manuel_veri = manuel_veri.reshape(1, 10, 8)
 
     tahmin = SOH_model.predict(manuel_veri)
-    return {"predicted_soc": float(tahmin[0][0])}
+    return {"predicted_soh": float(tahmin[0][0])}
+
+
+# Middleware for metrics
+@app.middleware("http")
+async def add_metrics(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+
+    record_metrics(
+        endpoint=str(request.url.path),
+        duration=process_time,
+        status_code=response.status_code,
+    )
+
+    return response
 
 
 if __name__ == "__main__":
