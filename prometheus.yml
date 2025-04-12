@@ -6,7 +6,7 @@ scrape_configs:
   - job_name: 'fastapi-service'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['backend:8000']
+      - targets: ['backend:8000']  # Docker ağı içinde backend servisine erişim
 
   - job_name: 'jaeger-metrics'
     metrics_path: '/metrics'

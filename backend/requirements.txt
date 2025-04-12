@@ -10,3 +10,4 @@ slowapi
 tensorflow
 prometheus-fastapi-instrumentator
 opentelemetry-exporter-prometheus
+sqlalchemy
