@@ -5,6 +5,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
 RUN npm install datatables.net datatables.net-dt
+RUN npm install chart.js
+
 
 
 COPY . .

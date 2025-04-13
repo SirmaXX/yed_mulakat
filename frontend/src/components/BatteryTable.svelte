@@ -1,7 +1,7 @@
 <script>
-  import { onMount } from 'svelte';
-  import DataTable from 'datatables.net';
-  import 'datatables.net-dt/css/dataTables.dataTables.css';  
+  import { onMount } from "svelte";
+  import DataTable from "datatables.net";
+  import "datatables.net-dt/css/dataTables.dataTables.css";
 
   let selectedBattery = "05";
   let batteryData = [];
@@ -12,7 +12,9 @@
   async function fetchData() {
     error = null;
     try {
-      const res = await fetch(`http://localhost:8000/api/data/${selectedBattery}`);
+      const res = await fetch(
+        `http://localhost:8000/api/data/${selectedBattery}`,
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       batteryData = await res.json();
 
@@ -30,7 +32,7 @@
         table = new DataTable(tableElement, {
           paging: true,
           responsive: true,
-          searching: true
+          searching: true,
         });
       }
     } catch (err) {
@@ -39,7 +41,7 @@
     }
   }
 
-  import { tick } from 'svelte';
+  import { tick } from "svelte";
 </script>
 
 <div class="container">

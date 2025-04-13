@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount } from "svelte";
 
   let isHealthy = null;
   let isLoading = false;
@@ -10,11 +10,11 @@
     error = null;
 
     try {
-      const res = await fetch('http://localhost:8000/health');
+      const res = await fetch("http://localhost:8000/health");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const result = await res.json();
-      isHealthy = result.status === 'ok';
+      isHealthy = result.status === "ok";
     } catch (err) {
       error = err.message;
       isHealthy = false;
@@ -32,11 +32,11 @@
   <h2>Service Health</h2>
 
   <button
-    class="btn btn-outline-primary mb-3"
+    class="btn btn-primary mb-3"
     on:click={checkHealth}
     disabled={isLoading}
   >
-    {isLoading ? 'Checking...' : 'Check Health'}
+    {isLoading ? "Checking..." : "Check Health"}
   </button>
 
   {#if isHealthy === true}

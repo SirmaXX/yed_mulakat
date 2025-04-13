@@ -6,19 +6,19 @@
   async function fetchSocPrediction() {
     isLoading = true;
     error = null;
-    
+
     try {
-      const response = await fetch('http://localhost:8000/soh-test-predict/');
-      
+      const response = await fetch("http://localhost:8000/soh-test-predict/");
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       predictedSoc = data.predicted_soh;
     } catch (err) {
       error = err.message;
-      console.error('Error fetching SOC prediction:', err);
+      console.error("Error fetching SOC prediction:", err);
     } finally {
       isLoading = false;
     }
@@ -27,13 +27,13 @@
 
 <div class="container mt-4">
   <h2>SOH Test Prediction</h2>
-  
-  <button 
+
+  <button
     on:click={fetchSocPrediction}
     disabled={isLoading}
     class="btn btn-primary mb-3"
   >
-    {isLoading ? 'Loading...' : 'Get SOC Prediction'}
+    {isLoading ? "Loading..." : "Get SOC Prediction"}
   </button>
 
   {#if error}
@@ -43,12 +43,12 @@
   {/if}
 
   {#if predictedSoc !== null}
-    <div class="card">
+    <div class="card border-success mb-3">
+      <div class="card-header bg-success text-white">Prediction Result</div>
       <div class="card-body">
-        <h5 class="card-title">Prediction Result</h5>
-        <p class="card-text">
+        <h5 class="card-title">
           Predicted SOH: <strong>{predictedSoc.toFixed(2)}%</strong>
-        </p>
+        </h5>
       </div>
     </div>
   {/if}
