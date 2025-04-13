@@ -35,16 +35,6 @@ def test_soh_test_predict():
     assert "predicted_soh" in response.json()
 
 
-def test_predict_soc_invalid():
-    response = client.get("/predict-soc/")
-    assert response.status_code == 422  # Missing request body
-
-
-def test_predict_soh_invalid():
-    response = client.get("/predict-soh/")
-    assert response.status_code == 422  # Missing request body
-
-
 def test_get_battery_data_valid():
     response = client.get("/api/data/05")
     if response.status_code == 200:

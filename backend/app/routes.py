@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import os
-from app.schemas import PredictionRequest
+from app.schemas import SOHPredictInput
 from opentelemetry import trace
 
 battery_folder = Path(__file__).parent / "battery_datas"
@@ -49,34 +49,6 @@ async def read_item(item_id: int, request: Request):
 
 
 @api_router.get(
-    "/predict-soc/",
-    response_model=dict,
-    description="Test için örnek veri ile soh için  tahmin yapar",
-)
-async def predict_soc(request: PredictionRequest, req: Request):
-    with trace_endpoint(req, "predict-soc"):
-        try:
-            manuel_veri = [
-                [
-                    request.ambient_temperature,
-                    ts.voltage_measured,
-                    ts.current_measured,
-                    ts.temperature_measured,
-                    ts.current_load,
-                    ts.voltage_load,
-                    ts.time,
-                    request.rul,
-                ]
-                for ts in request.time_steps
-            ]
-            manuel_veri = np.array(manuel_veri).reshape(1, 10, 8)
-            tahmin = SOC_model.predict(manuel_veri)
-            return {"predicted_soc": float(tahmin[0][0]), "input_data": request.dict()}
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-
-@api_router.get(
     "/soc-test-predict/", description="Test için örnek veri ile soc için  tahmin yapar"
 )
 async def soh_test_predict(request: Request):
@@ -101,34 +73,6 @@ async def soh_test_predict(request: Request):
 
 
 @api_router.get(
-    "/predict-soh/",
-    response_model=dict,
-    description="Kullanıcıdan gelen veri üzerinden ,soh ile  tahmin yapar",
-)
-async def predict_soh(request: PredictionRequest, req: Request):
-    with trace_endpoint(req, "predict-soh"):
-        try:
-            manuel_veri = [
-                [
-                    request.ambient_temperature,
-                    ts.voltage_measured,
-                    ts.current_measured,
-                    ts.temperature_measured,
-                    ts.current_load,
-                    ts.voltage_load,
-                    ts.time,
-                    request.rul,
-                ]
-                for ts in request.time_steps
-            ]
-            manuel_veri = np.array(manuel_veri).reshape(1, 10, 8)
-            tahmin = SOH_model.predict(manuel_veri)
-            return {"predicted_soc": float(tahmin[0][0]), "input_data": request.dict()}
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-
-@api_router.get(
     "/soh-test-predict/", description="Test için örnek veri ile soh için  tahmin yapar"
 )
 async def soc_test_predict(request: Request):
@@ -150,6 +94,44 @@ async def soc_test_predict(request: Request):
         manuel_veri = manuel_veri.reshape(1, 10, 8)
         tahmin = SOH_model.predict(manuel_veri)
         return {"predicted_soh": float(tahmin[0][0])}
+
+
+@api_router.post(
+    "/predict-soc/",
+    description="8 özellikten oluşan 10 zaman adımı ile SOH tahmini yapar",
+)
+async def soc_test_predict(request: Request, payload: SOHPredictInput):
+    with trace_endpoint(request, "soh-test-predict"):
+        try:
+            if len(payload.data) != 10 or any(len(row) != 8 for row in payload.data):
+                raise HTTPException(
+                    status_code=400, detail="Veri boyutu (10x8) olmalı."
+                )
+
+            manuel_veri = np.array(payload.data).reshape(1, 10, 8)
+            tahmin = SOC_model.predict(manuel_veri)
+            return {"predicted_soh": float(tahmin[0][0]), "sample": payload.data[0]}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post(
+    "/predict-soh/",
+    description="8 özellikten oluşan 10 zaman adımı ile SOH tahmini yapar",
+)
+async def soh_test_predict(request: Request, payload: SOHPredictInput):
+    with trace_endpoint(request, "soh-test-predict"):
+        try:
+            if len(payload.data) != 10 or any(len(row) != 8 for row in payload.data):
+                raise HTTPException(
+                    status_code=400, detail="Veri boyutu (10x8) olmalı."
+                )
+
+            manuel_veri = np.array(payload.data).reshape(1, 10, 8)
+            tahmin = SOH_model.predict(manuel_veri)
+            return {"predicted_soh": float(tahmin[0][0]), "sample": payload.data[0]}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 @api_router.get("/api/data/{battery_id}")

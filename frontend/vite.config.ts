@@ -8,4 +8,4 @@ export default defineConfig({
     strictPort: true,
     port: 5173
   }
-})
+});
