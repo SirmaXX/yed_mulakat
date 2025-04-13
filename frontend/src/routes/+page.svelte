@@ -2,9 +2,10 @@
   import Navbar from "../components/Navbar.svelte"
   import SocTestPredict  from "../components/SocTestPredict.svelte"
   import SohTestPredict  from "../components/SohTestPredict.svelte"
+  import HealthCard from "../components/HealthCard.svelte"
 </script>
 
-
+ <HealthCard/>
  <SohTestPredict />
 
 

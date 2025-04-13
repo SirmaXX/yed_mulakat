@@ -15,7 +15,7 @@
       }
       
       const data = await response.json();
-      predictedSoc = data.predicted_soc;
+      predictedSoc = data.predicted_soh;
     } catch (err) {
       error = err.message;
       console.error('Error fetching SOC prediction:', err);
