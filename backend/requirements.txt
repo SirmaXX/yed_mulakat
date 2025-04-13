@@ -12,3 +12,7 @@ prometheus-fastapi-instrumentator
 opentelemetry-exporter-prometheus
 sqlalchemy
 pandas
+pytest
+httpx
+pydantic
+python-multipart
