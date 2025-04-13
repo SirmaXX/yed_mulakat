@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 from app.main import create_app
+from fastapi.middleware.cors import CORSMiddleware
 
 # Monitoring ve Observability için importlar
 from opentelemetry import trace, metrics
@@ -50,6 +51,15 @@ FastAPIInstrumentor.instrument_app(app)
 # app.state.limiter = limiter
 # app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # app.add_middleware(SlowAPIMiddleware)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # geliştirme için geniş tut, prod’da daralt
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # Metrikler ve tracing için yardımcı fonksiyonlar
